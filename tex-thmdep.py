@@ -1,5 +1,10 @@
 #!/usr/bin/env python
 
+"""
+Read commands of the form `\\thmdep{v}{u}` from TeX files and use them to create a TikZ
+graph containing edges of the form `"\\cref{u}" -> "\\cref{v}"`.
+"""
+
 from __future__ import print_function
 import sys
 import argparse
