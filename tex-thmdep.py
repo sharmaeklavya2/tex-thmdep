@@ -14,10 +14,6 @@ DEFAULT_OPTIONS = {
         'level distance=10mm'
     ],
 }
-TIKZ_HEADER = """
-\\begin{tikzpicture}
-\\graph[] {
-""".strip()
 
 
 def extract(s, edges, exclude_prefixes):
