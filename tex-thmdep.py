@@ -13,10 +13,10 @@ import re
 EDGE_RE = r'\\thmdep(|cref){([^}]+)}{([^}]+)}'
 DEFAULT_OPTIONS = {
     'tikz': [
-        'nodes={draw, rectangle}',
+        'nodes={draw, rectangle, align=center}',
         'layered layout',
         'sibling distance=10mm',
-        'level distance=10mm'
+        'level distance=15mm'
     ],
 }
 
@@ -29,7 +29,7 @@ def extract(s, edges, exclude_prefixes):
                 edges.append((lem, thm))
 
 
-def output(edges, format, options, ofp):
+def output(edges, format, options, show_label, ofp):
     nodes = set()
     seen_edges = set()
     for (lem, thm) in edges:
@@ -39,7 +39,10 @@ def output(edges, format, options, ofp):
         header = '\\begin{tikzpicture}\n\\graph[#1] {'.replace('#1', ', '.join(options))
         print(header, file=ofp)
         for node in nodes:
-            print('"#1"/"\\cref{#1}";'.replace('#1', node), file=ofp)
+            if show_label:
+                print('"#1"/"\\cref{#1}\\\\{\\tiny\\texttt{#1}}";'.replace('#1', node), file=ofp)
+            else:
+                print('"#1"/"\\cref{#1}";'.replace('#1', node), file=ofp)
         for (lem, thm) in edges:
             if (lem, thm) not in seen_edges:
                 seen_edges.add((lem, thm))
@@ -58,6 +61,8 @@ def main():
     parser.add_argument('--option', dest='options', action='append', help='drawing option')
     parser.add_argument('--exclude-prefix', dest='exclude_prefixes', action='append',
         help='labels prefixes to exclude')
+    parser.add_argument('--show-label', action='store_true', default=False,
+        help='show the \\label text in node')
     args = parser.parse_args()
 
     edges = []
@@ -68,10 +73,10 @@ def main():
 
     options = args.options or DEFAULT_OPTIONS[args.format]
     if args.output is None:
-        output(edges, args.format, options, sys.stdout)
+        output(edges, args.format, options, args.show_label, sys.stdout)
     else:
         with open(args.output, 'w') as ofp:
-            output(edges, args.format, options, ofp)
+            output(edges, args.format, options, args.show_label, ofp)
 
 
 if __name__ == '__main__':
