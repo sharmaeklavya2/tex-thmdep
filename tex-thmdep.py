@@ -31,6 +31,7 @@ def extract(s, edges, exclude_prefixes):
 
 def output(edges, format, options, ofp):
     nodes = set()
+    seen_edges = set()
     for (lem, thm) in edges:
         nodes.add(lem)
         nodes.add(thm)
@@ -40,8 +41,10 @@ def output(edges, format, options, ofp):
         for node in nodes:
             print('"#1"/"\\cref{#1}";'.replace('#1', node), file=ofp)
         for (lem, thm) in edges:
-            line = '"#2" -> "#1";'.replace('#2', thm).replace('#1', lem)
-            print(line, file=ofp)
+            if (lem, thm) not in seen_edges:
+                seen_edges.add((lem, thm))
+                line = '"#2" -> "#1";'.replace('#2', thm).replace('#1', lem)
+                print(line, file=ofp)
         print('};\n\\end{tikzpicture}', file=ofp)
     else:
         raise NotImplementedError("format {} is not supported".format(repr(format)))
