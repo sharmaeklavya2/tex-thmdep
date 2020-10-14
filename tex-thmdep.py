@@ -23,9 +23,10 @@ DEFAULT_OPTIONS = {
 
 def extract(s, edges, exclude_prefixes):
     for match in re.finditer(EDGE_RE, s, flags=re.MULTILINE):
-        lem, thm = match.group(2), match.group(3)
-        if not lem.startswith(exclude_prefixes) and not thm.startswith(exclude_prefixes):
-            edges.append((lem, thm))
+        lems, thm = match.group(2), match.group(3)
+        for lem in lems.split(','):
+            if not lem.startswith(exclude_prefixes) and not thm.startswith(exclude_prefixes):
+                edges.append((lem, thm))
 
 
 def output(edges, format, options, ofp):
