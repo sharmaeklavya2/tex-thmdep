@@ -10,7 +10,7 @@ import sys
 import argparse
 import re
 
-EDGE_RE = r'\\thmdep(|cref){([^}]+)}{([^}]+)}'
+ENTITY_RE = r'\\(thmdep|thmdepcref){([^}]*)}{([^}]*)}|\\(label){([^}]*)}'
 DEFAULT_OPTIONS = {
     'tikz': [
         'nodes={draw, rectangle, align=center}',
@@ -21,12 +21,26 @@ DEFAULT_OPTIONS = {
 }
 
 
-def extract(s, edges, exclude_prefixes):
-    for match in re.finditer(EDGE_RE, s, flags=re.MULTILINE):
-        lems, thm = match.group(2), match.group(3)
-        for lem in lems.split(','):
-            if not lem.startswith(exclude_prefixes) and not thm.startswith(exclude_prefixes):
-                edges.append((lem, thm))
+def warn(msg):
+    print('tex-thmdep warning:', msg, file=sys.stderr)
+
+
+def extract(s, edges, ifpath, exclude_prefixes):
+    curr_node = ''
+    empty_thm_warned = False
+    for match in re.finditer(ENTITY_RE, s, flags=re.MULTILINE):
+        if match.group(4) is not None:
+            curr_node = match.group(5)
+        else:
+            lems, thm = match.group(2), match.group(3)
+            if thm == '':
+                thm = curr_node
+                if curr_node == '' and not empty_thm_warned:
+                    warn(r'use of empty thm before \label in ' + ifpath)
+                    empty_thm_warned = True
+            for lem in lems.split(','):
+                if not lem.startswith(exclude_prefixes) and not thm.startswith(exclude_prefixes):
+                    edges.append((lem, thm))
 
 
 def output(edges, format, options, show_label, ofp):
@@ -69,7 +83,7 @@ def main():
     for ifpath in args.ifpaths:
         with open(ifpath) as ifp:
             s = ifp.read()
-        extract(s, edges, tuple(args.exclude_prefixes or ()))
+        extract(s, edges, ifpath, tuple(args.exclude_prefixes or ()))
 
     options = args.options or DEFAULT_OPTIONS[args.format]
     if args.output is None:
