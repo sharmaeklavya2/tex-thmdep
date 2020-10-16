@@ -46,11 +46,32 @@ def extract(s, edges, ifpath, exclude_prefixes):
 
 
 class VertexInfo(object):
-    __slots__ = ('adj', 'radj')
+    __slots__ = ('adj', 'radj', 'dist', 'visited')
 
     def __init__(self):
         self.adj = []
         self.radj = []
+        self.dist = None
+        self.visited = False
+
+
+def bfs(nodes):
+    q = deque()
+    for u, uinf in nodes.items():
+        if not uinf.radj:
+            q.append(u)
+            uinf.dist = 0
+    while q:
+        u = q.popleft()
+        uinf = nodes[u]
+        if not uinf.visited:
+            uinf.visited = True
+            for v in uinf.adj:
+                vinf = nodes[v]
+                if not vinf.visited:
+                    if vinf.dist is None or vinf.dist > uinf.dist + 1:
+                        vinf.dist = uinf.dist + 1
+                    q.append(v)
 
 
 def process(edges):
@@ -61,18 +82,27 @@ def process(edges):
             seen_edges.add((u, v))
             nodes[u].adj.append(v)
             nodes[v].radj.append(u)
+    bfs(nodes)
     return nodes
 
 
-def output(nodes, format, raw_options, show_label, ofp):
+def output(nodes, format, raw_options, show_label, show_dist, ofp):
     if format == 'tikz':
         header = '\\begin{tikzpicture}\n\\graph[#1] {'.replace('#1', ', '.join(raw_options))
         print(header, file=ofp)
-        for v in nodes:
+        for v, vinf in nodes.items():
+            sub_parts = []
             if show_label:
-                print('"#1"/"\\cref{#1}\\\\{\\tiny\\texttt{#1}}";'.replace('#1', v), file=ofp)
+                sub_parts.append((r'\texttt', v))
+            if show_dist:
+                sub_parts.append(('', 'dist: ' + str(vinf.dist)))
+            if sub_parts:
+                tinytt_text = r'\\' + r'\\'.join([
+                    r'{\tiny#1{#2}}'.replace('#1', x).replace('#2', y)
+                    for x, y in sub_parts])
             else:
-                print('"#1"/"\\cref{#1}";'.replace('#1', v), file=ofp)
+                tinytt_text = ''
+            print(r'"#1"/"\cref{#1}'.replace('#1', v) + tinytt_text + '";', file=ofp)
         for u, uinf in nodes.items():
             for v in uinf.adj:
                 line = '"#1" -> "#2";'.replace('#1', u).replace('#2', v)
@@ -93,6 +123,8 @@ def main():
         help='labels prefixes to exclude')
     parser.add_argument('--show-label', action='store_true', default=False,
         help='show the \\label text in node')
+    parser.add_argument('--show-dist', action='store_true', default=False,
+        help='show the distance from topmost theorems')
     args = parser.parse_args()
 
     edges = []
@@ -104,10 +136,10 @@ def main():
 
     raw_options = args.raw_options or DEFAULT_RAW_OPTIONS[args.format]
     if args.output is None:
-        output(nodes, args.format, raw_options, args.show_label, sys.stdout)
+        output(nodes, args.format, raw_options, args.show_label, args.show_dist, sys.stdout)
     else:
         with open(args.output, 'w') as ofp:
-            output(nodes, args.format, raw_options, args.show_label, ofp)
+            output(nodes, args.format, raw_options, args.show_label, args.show_dist, ofp)
 
 
 if __name__ == '__main__':
