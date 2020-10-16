@@ -27,7 +27,7 @@ def warn(msg):
     print('tex-thmdep warning:', msg, file=sys.stderr)
 
 
-def extract(s, edges, ifpath, exclude_prefixes):
+def extract(s, edges, ifpath, options):
     curr_node = ''
     empty_thm_warned = False
     for match in re.finditer(ENTITY_RE, s, flags=re.MULTILINE):
@@ -41,7 +41,8 @@ def extract(s, edges, ifpath, exclude_prefixes):
                     warn(r'use of empty thm before \label in ' + ifpath)
                     empty_thm_warned = True
             for lem in lems.split(','):
-                if not lem.startswith(exclude_prefixes) and not thm.startswith(exclude_prefixes):
+                if (not lem.startswith(options['exclude_prefixes'])
+                        and not thm.startswith(options['exclude_prefixes'])):  # noqa
                     edges.append((thm, lem))
 
 
@@ -74,7 +75,7 @@ def bfs(nodes):
                     q.append(v)
 
 
-def process(edges):
+def process(edges, options):
     nodes = defaultdict(VertexInfo)
     seen_edges = set()
     for (u, v) in edges:
@@ -83,18 +84,31 @@ def process(edges):
             nodes[u].adj.append(v)
             nodes[v].radj.append(u)
     bfs(nodes)
+
+    bad_nodes = set()
+    if options['max_dist'] is not None:
+        max_dist = options['max_dist']
+        for v, vinf in nodes.items():
+            if vinf.dist > max_dist:
+                bad_nodes.add(v)
+    for v in bad_nodes:
+        del nodes[v]
+    for u, uinf in nodes.items():
+        uinf.adj = [v for v in uinf.adj if v in nodes]
+        uinf.radj = [v for v in uinf.radj if v in nodes]
+
     return nodes
 
 
-def output(nodes, format, raw_options, show_label, show_dist, ofp):
+def output(nodes, format, options, raw_options, ofp):
     if format == 'tikz':
         header = '\\begin{tikzpicture}\n\\graph[#1] {'.replace('#1', ', '.join(raw_options))
         print(header, file=ofp)
         for v, vinf in nodes.items():
             sub_parts = []
-            if show_label:
+            if options['show_label']:
                 sub_parts.append((r'\texttt', v))
-            if show_dist:
+            if options['show_dist']:
                 sub_parts.append(('', 'dist: ' + str(vinf.dist)))
             if sub_parts:
                 tinytt_text = r'\\' + r'\\'.join([
@@ -125,21 +139,28 @@ def main():
         help='show the \\label text in node')
     parser.add_argument('--show-dist', action='store_true', default=False,
         help='show the distance from topmost theorems')
+    parser.add_argument('--max-dist', type=int,
+        help='maximum distance allowed for a node to be displayed')
     args = parser.parse_args()
+
+    option_names = ['exclude_prefixes', 'max_dist', 'show_label', 'show_dist']
+    args.exclude_prefixes = tuple(args.exclude_prefixes or ())
+    arg_vars = vars(args)
+    options = {optname: arg_vars[optname] for optname in option_names}
+    raw_options = args.raw_options or DEFAULT_RAW_OPTIONS[args.format]
 
     edges = []
     for ifpath in args.ifpaths:
         with open(ifpath) as ifp:
             s = ifp.read()
-        extract(s, edges, ifpath, tuple(args.exclude_prefixes or ()))
-    nodes = process(edges)
+        extract(s, edges, ifpath, options)
+    nodes = process(edges, options)
 
-    raw_options = args.raw_options or DEFAULT_RAW_OPTIONS[args.format]
     if args.output is None:
-        output(nodes, args.format, raw_options, args.show_label, args.show_dist, sys.stdout)
+        output(nodes, args.format, options, raw_options, sys.stdout)
     else:
         with open(args.output, 'w') as ofp:
-            output(nodes, args.format, raw_options, args.show_label, args.show_dist, ofp)
+            output(nodes, args.format, options, raw_options, ofp)
 
 
 if __name__ == '__main__':
