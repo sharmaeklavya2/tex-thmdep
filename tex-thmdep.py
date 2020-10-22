@@ -25,8 +25,12 @@ DEFAULT_RAW_OPTIONS = {
 }
 
 
-def warn(msg):
-    print('tex-thmdep warning:', msg, file=sys.stderr)
+def warn(*args):
+    print('tex-thmdep: WARNING:', *args, file=sys.stderr)
+
+
+def debug(*args):
+    print('tex-thmdep:', *args, file=sys.stderr)
 
 
 def extract(s, edges, ifpath, options):
@@ -34,6 +38,7 @@ def extract(s, edges, ifpath, options):
     ignore_mode = False
     files = set()
     empty_thm_warned = False
+    count = 0
     s = re.sub(COMMENT_RE, '\n', s, flags=re.MULTILINE)
     for match in re.finditer(ENTITY_RE, s, flags=re.MULTILINE):
         if match.group(4) is not None:
@@ -59,7 +64,8 @@ def extract(s, edges, ifpath, options):
                 if (not lem.startswith(options['exclude_prefixes'])
                         and not thm.startswith(options['exclude_prefixes'])):  # noqa
                     edges.append((thm, lem))
-    return files
+                    count += 1
+    return (count, files)
 
 
 def extract_from_files(ifpaths, options):
@@ -72,7 +78,9 @@ def extract_from_files(ifpaths, options):
             visited_files.add(ifpath)
             with open(ifpath) as ifp:
                 s = ifp.read()
-            new_files = extract(s, edges, ifpath, options)
+            count, new_files = extract(s, edges, ifpath, options)
+            if options['verbose']:
+                debug('{} edges added by {}.'.format(count, ifpath))
             for fpath2 in new_files:
                 if fpath2 not in visited_files:
                     files_queue.append(fpath2)
@@ -179,6 +187,7 @@ def main():
         help='maximum distance allowed for a node to be displayed')
     parser.add_argument('--follow', action='store_true', default=False,
         help='go to files pointed by \\input')
+    parser.add_argument('-v', '--verbose', action='count', default=0)
     args = parser.parse_args()
 
     non_option_names = ['ifpaths', 'output', 'format', 'raw_options']
