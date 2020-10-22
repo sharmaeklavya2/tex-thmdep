@@ -51,7 +51,7 @@ def extract(s, edges, ifpath, options):
                     ignore_mode = True
                 elif cmd == 'label':
                     curr_node = arg
-                elif cmd == 'input' and options['follow']:
+                elif cmd == 'input' and arg.endswith('.tex') and options['follow']:
                     files.add(arg)
         elif not ignore_mode:
             lems, thm = match.group(2), match.group(3)
