@@ -13,7 +13,7 @@ from collections import defaultdict, deque
 
 
 COMMENT_RE = r'(?<!\\)%[^\n]*\n'
-ENTITY_RE = r'\\(thmdep|thmdepcref){([^}]*)}{([^}]*)}|\\(label|begin|end){([^}]*)}'
+ENTITY_RE = r'\\(thmdep|thmdepcref){([^}]*)}{([^}]*)}|\\(label|begin|end|input){([^}]*)}'
 DEFAULT_IGNORE_ENVS = ('comment', 'optional', 'obsolete', 'error')
 DEFAULT_RAW_OPTIONS = {
     'tikz': [
@@ -32,6 +32,7 @@ def warn(msg):
 def extract(s, edges, ifpath, options):
     curr_node = ''
     ignore_mode = False
+    files = set()
     empty_thm_warned = False
     s = re.sub(COMMENT_RE, '\n', s, flags=re.MULTILINE)
     for match in re.finditer(ENTITY_RE, s, flags=re.MULTILINE):
@@ -45,6 +46,8 @@ def extract(s, edges, ifpath, options):
                     ignore_mode = True
                 elif cmd == 'label':
                     curr_node = arg
+                elif cmd == 'input' and options['follow']:
+                    files.add(arg)
         elif not ignore_mode:
             lems, thm = match.group(2), match.group(3)
             if thm == '':
@@ -56,6 +59,24 @@ def extract(s, edges, ifpath, options):
                 if (not lem.startswith(options['exclude_prefixes'])
                         and not thm.startswith(options['exclude_prefixes'])):  # noqa
                     edges.append((thm, lem))
+    return files
+
+
+def extract_from_files(ifpaths, options):
+    edges = []
+    files_queue = deque(ifpaths)
+    visited_files = set()
+    while files_queue:
+        ifpath = files_queue.popleft()
+        if ifpath not in visited_files:
+            visited_files.add(ifpath)
+            with open(ifpath) as ifp:
+                s = ifp.read()
+            new_files = extract(s, edges, ifpath, options)
+            for fpath2 in new_files:
+                if fpath2 not in visited_files:
+                    files_queue.append(fpath2)
+    return edges
 
 
 class VertexInfo(object):
@@ -155,20 +176,19 @@ def main():
         help='show the distance from topmost theorems')
     parser.add_argument('--max-dist', type=int,
         help='maximum distance allowed for a node to be displayed')
+    parser.add_argument('--follow', action='store_true', default=False,
+        help='go to files pointed by \\input')
     args = parser.parse_args()
 
-    option_names = ['exclude_prefixes', 'ignore_envs', 'max_dist', 'show_label', 'show_dist']
+    option_names = ['exclude_prefixes', 'ignore_envs', 'max_dist', 'show_label', 'show_dist',
+        'follow']
     args.exclude_prefixes = tuple(args.exclude_prefixes or ())
     args.ignore_envs = tuple(args.ignore_envs or DEFAULT_IGNORE_ENVS)
     arg_vars = vars(args)
     options = {optname: arg_vars[optname] for optname in option_names}
     raw_options = args.raw_options or DEFAULT_RAW_OPTIONS[args.format]
 
-    edges = []
-    for ifpath in args.ifpaths:
-        with open(ifpath) as ifp:
-            s = ifp.read()
-        extract(s, edges, ifpath, options)
+    edges = extract_from_files(args.ifpaths, options)
     nodes = process(edges, options)
 
     if args.output is None:
