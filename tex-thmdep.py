@@ -166,6 +166,7 @@ def main():
     parser.add_argument('-f', '--format', default='tikz', help='output format')
     parser.add_argument('--raw-option', dest='raw_options', action='append',
         help='option passed directly to output')
+
     parser.add_argument('--exclude-prefix', dest='exclude_prefixes', action='append',
         help='labels prefixes to exclude')
     parser.add_argument('--ignore-env', dest='ignore_envs', action='append',
@@ -180,12 +181,11 @@ def main():
         help='go to files pointed by \\input')
     args = parser.parse_args()
 
-    option_names = ['exclude_prefixes', 'ignore_envs', 'max_dist', 'show_label', 'show_dist',
-        'follow']
+    non_option_names = ['ifpaths', 'output', 'format', 'raw_options']
     args.exclude_prefixes = tuple(args.exclude_prefixes or ())
     args.ignore_envs = tuple(args.ignore_envs or DEFAULT_IGNORE_ENVS)
     arg_vars = vars(args)
-    options = {optname: arg_vars[optname] for optname in option_names}
+    options = {k: v for k, v in arg_vars.items() if k not in non_option_names}
     raw_options = args.raw_options or DEFAULT_RAW_OPTIONS[args.format]
 
     edges = extract_from_files(args.ifpaths, options)
