@@ -13,7 +13,8 @@ from collections import defaultdict, deque
 
 
 COMMENT_RE = r'(?<!\\)%[^\n]*\n'
-ENTITY_RE = r'\\(thmdep|thmdepcref){([^}]*)}{([^}]*)}|\\(label){([^}]*)}'
+ENTITY_RE = r'\\(thmdep|thmdepcref){([^}]*)}{([^}]*)}|\\(label|begin|end){([^}]*)}'
+DEFAULT_IGNORE_ENVS = ('comment', 'optional', 'obsolete', 'error')
 DEFAULT_RAW_OPTIONS = {
     'tikz': [
         'nodes={draw, rectangle, align=center}',
@@ -30,12 +31,21 @@ def warn(msg):
 
 def extract(s, edges, ifpath, options):
     curr_node = ''
+    ignore_mode = False
     empty_thm_warned = False
-    s = re.sub(COMMENT_RE, '\n', s)
+    s = re.sub(COMMENT_RE, '\n', s, flags=re.MULTILINE)
     for match in re.finditer(ENTITY_RE, s, flags=re.MULTILINE):
         if match.group(4) is not None:
-            curr_node = match.group(5)
-        else:
+            cmd, arg = match.group(4), match.group(5)
+            if ignore_mode:
+                if cmd == 'end' and arg in options['ignore_envs']:
+                    ignore_mode = False
+            else:
+                if cmd == 'begin' and arg in options['ignore_envs']:
+                    ignore_mode = True
+                elif cmd == 'label':
+                    curr_node = arg
+        elif not ignore_mode:
             lems, thm = match.group(2), match.group(3)
             if thm == '':
                 thm = curr_node
@@ -137,6 +147,8 @@ def main():
         help='option passed directly to output')
     parser.add_argument('--exclude-prefix', dest='exclude_prefixes', action='append',
         help='labels prefixes to exclude')
+    parser.add_argument('--ignore-env', dest='ignore_envs', action='append',
+        help='envs to ignore')
     parser.add_argument('--show-label', action='store_true', default=False,
         help='show the \\label text in node')
     parser.add_argument('--show-dist', action='store_true', default=False,
@@ -145,8 +157,9 @@ def main():
         help='maximum distance allowed for a node to be displayed')
     args = parser.parse_args()
 
-    option_names = ['exclude_prefixes', 'max_dist', 'show_label', 'show_dist']
+    option_names = ['exclude_prefixes', 'ignore_envs', 'max_dist', 'show_label', 'show_dist']
     args.exclude_prefixes = tuple(args.exclude_prefixes or ())
+    args.ignore_envs = tuple(args.ignore_envs or DEFAULT_IGNORE_ENVS)
     arg_vars = vars(args)
     options = {optname: arg_vars[optname] for optname in option_names}
     raw_options = args.raw_options or DEFAULT_RAW_OPTIONS[args.format]
