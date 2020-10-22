@@ -70,6 +70,7 @@ def extract(s, edges, ifpath, options):
 
 def extract_from_files(ifpaths, options):
     edges = []
+    edge_count = {}
     files_queue = deque(ifpaths)
     visited_files = set()
     while files_queue:
@@ -79,11 +80,13 @@ def extract_from_files(ifpaths, options):
             with open(ifpath) as ifp:
                 s = ifp.read()
             count, new_files = extract(s, edges, ifpath, options)
-            if options['verbose']:
-                debug('{} edges added by {}.'.format(count, ifpath))
+            if count:
+                edge_count[ifpath] = count
             for fpath2 in new_files:
                 if fpath2 not in visited_files:
                     files_queue.append(fpath2)
+    if options['verbose']:
+        debug('edge-count:', edge_count)
     return edges
 
 
