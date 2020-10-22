@@ -14,7 +14,7 @@ from collections import defaultdict, deque
 
 COMMENT_RE = r'(?<!\\)%[^\n]*\n'
 ENTITY_RE = r'\\(thmdep|thmdepcref){([^}]*)}{([^}]*)}|\\(label|begin|end|input){([^}]*)}'
-DEFAULT_IGNORE_ENVS = ('comment', 'optional', 'obsolete', 'error')
+DEFAULT_IGNORE_ENVS = ('comment', 'error')
 DEFAULT_RAW_OPTIONS = {
     'tikz': [
         'nodes={draw, rectangle, align=center}',
