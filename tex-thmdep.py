@@ -12,6 +12,7 @@ import re
 from collections import defaultdict, deque
 
 
+COMMENT_RE = r'(?<!\\)%[^\n]*\n'
 ENTITY_RE = r'\\(thmdep|thmdepcref){([^}]*)}{([^}]*)}|\\(label){([^}]*)}'
 DEFAULT_RAW_OPTIONS = {
     'tikz': [
@@ -30,6 +31,7 @@ def warn(msg):
 def extract(s, edges, ifpath, options):
     curr_node = ''
     empty_thm_warned = False
+    s = re.sub(COMMENT_RE, '\n', s)
     for match in re.finditer(ENTITY_RE, s, flags=re.MULTILINE):
         if match.group(4) is not None:
             curr_node = match.group(5)
