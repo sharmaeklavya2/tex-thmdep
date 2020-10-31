@@ -25,6 +25,12 @@ DEFAULT_RAW_OPTIONS = {
 }
 
 
+try:
+    FileNotFoundError
+except NameError:
+    FileNotFoundError = IOError
+
+
 def warn(*args):
     print('tex-thmdep: WARNING:', *args, file=sys.stderr)
 
@@ -77,8 +83,12 @@ def extract_from_files(ifpaths, options):
         ifpath = files_queue.popleft()
         if ifpath not in visited_files:
             visited_files.add(ifpath)
-            with open(ifpath) as ifp:
-                s = ifp.read()
+            try:
+                with open(ifpath) as ifp:
+                    s = ifp.read()
+            except FileNotFoundError:
+                warn('input file not found:', ifpath)
+                continue
             count, new_files = extract(s, edges, ifpath, options)
             if count:
                 edge_count[ifpath] = count
